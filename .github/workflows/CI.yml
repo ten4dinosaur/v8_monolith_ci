@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  schedule:
+    - cron: '45 2,8,14,20 * * *'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            build_os: win
+            arch: x86
+          - os: windows-latest
+            build_os: win
+            arch: x64
+          - os: windows-latest
+            build_os: win
+            arch: arm64
+          - os: ubuntu-latest
+            build_os: unix
+            arch: x86
+          - os: ubuntu-latest
+            build_os: unix
+            arch: x64
+          - os: ubuntu-latest
+            build_os: unix
+            arch: arm
+          - os: ubuntu-latest
+            build_os: unix
+            arch: arm64
+          - os: macos-latest
+            build_os: mac
+            arch: x64
+          - os: macos-latest
+            build_os: mac
+            arch: arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Load commit hash
+        id: cache-data
+        uses: actions/cache@v2
+        with:
+          path: ${{ matrix.build_os }}_${{ matrix.arch }}.hash
+          key: ${{ matrix.build_os }}-${{ matrix.arch }}-commit-hash
+
+      - name: Ensure +x
+        run: chmod +x ./build.sh
+        shell: bash
+        if: runner.os != 'Windows'
+
+      - name: Install setuptools
+        if: matrix.os == 'macos-latest'
+        run: python3 -m pip install --upgrade setuptools
+
+      - name: Run build script
+        run: ./build.sh ${{ matrix.build_os }} ${{ matrix.arch }} stable
+        shell: bash
+
+      - name: Get skip info
+        run: (echo -n "BUILD_SKIPPED="; cat ./.skip_build) >> "$GITHUB_ENV"
+        shell: bash
+
+      - name: Get build info
+        run: |
+          echo "V8_VERSION=$(python3 ./get_v8_version.py)" >> "$GITHUB_ENV"
+          (echo -n "COMMIT_HASH="; cat ./.commit_hash) >> "$GITHUB_ENV"
+        if: env.BUILD_SKIPPED == 'false'
+        shell: bash
+
+      - name: 7zip build output
+        if: env.BUILD_SKIPPED == 'false'
+        run: 7z a -mx=5 ./${{ matrix.build_os }}-${{ matrix.arch }}-${{ env.COMMIT_HASH }}.7z ./out/Release
+        shell: bash
+
+      - name: Create release and upload asset
+        uses: actions/github-script@v6
+        if: env.BUILD_SKIPPED == 'false'
+        continue-on-error: true
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            let release;
+            try {
+              release = await github.rest.repos.createRelease({
+                draft: false,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                prerelease: false,
+                tag_name: process.env.V8_VERSION,
+                name: `Release-${process.env.V8_VERSION}`,
+                generate_release_notes: false
+              });
+            } catch (error) {
+              console.log(error);
+              release = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: process.env.V8_VERSION
+              });
+            }
+
+            const releasePath = path.join(process.env.GITHUB_WORKSPACE, process.env.ASSET_NAME);
+            await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.data.id,
+              name: process.env.ASSET_NAME,
+              data: fs.readFileSync(releasePath),
+              headers: {
+                'content-type': 'application/x-7z-compressed',
+                'content-length': fs.statSync(releasePath).size
+              }
+            });
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ASSET_NAME: ${{ matrix.build_os }}-${{ matrix.arch }}-${{ env.COMMIT_HASH }}.7z
+
+      - name: Update commit hash
+        if: env.BUILD_SKIPPED == 'false'
+        run: echo $COMMIT_HASH > ${{ matrix.build_os }}_${{ matrix.arch }}.hash
+        shell: bash
