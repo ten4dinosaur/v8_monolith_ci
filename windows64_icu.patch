@@ -1,0 +1,26 @@
+From cfd3181a7a559d728d6e6eab6497a44587854de5 Mon Sep 17 00:00:00 2001
+From: icu <icu>
+Date: Mon, 17 Sep 2001 00:00:00 +0000
+Subject: [PATCH] Fix Windows ICU build
+
+---
+ make_data_assembly.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/v8/third_party/icu/scripts/make_data_assembly.py b/v8/third_party/icu/scripts/make_data_assembly.py
+index 2aacb85..0371923 100755
+--- a/v8/third_party/icu/scripts/make_data_assembly.py
++++ b/v8/third_party/icu/scripts/make_data_assembly.py
+@@ -60,10 +60,10 @@ if options.mac:
+                "\t.align 4\n"
+                "_icudt%s_dat:\n" %tuple([version_number] * 3))
+ elif options.win:
+-  output.write(".globl _icudt%s_dat\n"
++  output.write(".globl icudt%s_dat\n"
+                "\t.section .rdata\n"
+                "\t.balign 16\n"
+-               "_icudt%s_dat:\n" % tuple([version_number] * 2))
++               "icudt%s_dat:\n" % tuple([version_number] * 2))
+ else:
+   output.write(".globl icudt%s_dat\n"
+                "\t.section .note.GNU-stack,\"\",%%progbits\n"
