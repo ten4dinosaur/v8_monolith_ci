@@ -33,10 +33,12 @@ if [ $(get_json_field "$version_info" "status") == "error" ]; then
     exit 1
 fi
 
-last_v8_commit=$(cat "${platform}_${architecture}.hash")
+last_v8_commit=$(head -n 1 "${platform}_${architecture}.hash" | xargs)
 v8_commit=$(get_json_field "$version_info" "v8_commit")
 tools_commit=$(get_json_field "$version_info" "tools_commit")
 
+echo "Last build commit: $last_v8_commit"
+echo "Current build commit: $v8_commit"
 if [ "$last_v8_commit" == "$v8_commit" ]; then
     echo "true" > ./.skip_build
     exit 0
