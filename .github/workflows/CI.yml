@@ -20,15 +20,15 @@ jobs:
           - os: windows-latest
             build_os: win
             arch: arm64
-          - os: ubuntu-latest
-            build_os: unix
-            arch: x86
+          #- os: ubuntu-latest
+          #  build_os: unix
+          #  arch: x86
           - os: ubuntu-latest
             build_os: unix
             arch: x64
-          - os: ubuntu-latest
-            build_os: unix
-            arch: arm
+          #- os: ubuntu-latest
+          #  build_os: unix
+          #  arch: arm
           - os: ubuntu-latest
             build_os: unix
             arch: arm64
